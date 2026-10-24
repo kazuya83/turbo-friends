@@ -94,6 +94,56 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
+addEventListener('pointerdown', () => A.initAudio());
+
+// ---------- ゲームコントローラー ----------
+// レース中の操作はPad*という仮想キーで持ち、メニューでは矢印・Enter・Escのキー入力として送る
+const pad = { held: new Set(), steer: 0, repeatT: 0, known: false };
+const fakeKey = (code) => onKey({ code, repeat: false, shiftKey: false, preventDefault() {} });
+addEventListener('gamepadconnected', () => { if (!pad.known) { pad.known = true; toast('コントローラーをつなぎました'); } });
+
+function pollGamepad(dt) {
+  const gps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  const gp = gps[0];
+  const now = new Set();
+  pad.steer = 0;
+  if (gp) {
+    const b = (i) => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.4));
+    const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+    if (b(12) || ay < -0.5) now.add('NavUp');
+    if (b(13) || ay > 0.5) now.add('NavDown');
+    if (b(14) || ax < -0.5) now.add('NavLeft');
+    if (b(15) || ax > 0.5) now.add('NavRight');
+    if (b(0)) now.add('NavOk');
+    if (b(1)) now.add('NavBack');
+    if (b(9)) now.add('NavStart');
+    if (b(0) || b(7)) now.add('PadGas');
+    if (b(1) || b(6)) now.add('PadBrake');
+    if (b(4) || b(5)) now.add('PadDrift');
+    if (b(2) || b(3)) now.add('PadItem');
+    if (b(14)) now.add('PadLeft');
+    if (b(15)) now.add('PadRight');
+    if (b(13) || ay > 0.6) now.add('PadBack');
+    if (Math.abs(ax) > 0.18) pad.steer = -Math.sign(ax) * Math.min(1, (Math.abs(ax) - 0.18) / 0.6);
+  }
+  const menuMode = !!UI.screen || !$('overlay-msg').classList.contains('hidden') || (G.race && G.race.paused);
+  const navMap = { NavUp: 'ArrowUp', NavDown: 'ArrowDown', NavLeft: 'ArrowLeft', NavRight: 'ArrowRight', NavOk: 'Enter', NavBack: 'Escape' };
+  for (const c of now) {
+    if (!pad.held.has(c)) {
+      if (c.startsWith('Pad')) { keys.add(c); pressed.add(c); }
+      if (c === 'NavStart') { A.initAudio(); fakeKey('Escape'); }
+      else if (menuMode && navMap[c]) { A.initAudio(); fakeKey(navMap[c]); pad.repeatT = 0.4; }
+    }
+  }
+  for (const c of pad.held) if (!now.has(c) && c.startsWith('Pad')) keys.delete(c);
+  // メニューで上下左右を押しっぱなしにしたときのくり返し
+  const dir = ['NavUp', 'NavDown', 'NavLeft', 'NavRight'].find((c) => now.has(c) && pad.held.has(c));
+  if (menuMode && dir) {
+    pad.repeatT -= dt;
+    if (pad.repeatT <= 0) { fakeKey(navMap[dir]); pad.repeatT = 0.15; }
+  }
+  pad.held = now;
+}
 
 function onKey(e) {
   if (!$('overlay-msg').classList.contains('hidden')) {
@@ -712,15 +762,17 @@ function updateEntities(dt) {
 
 // ---------- 毎フレームの処理 ----------
 function myInput(R) {
-  const left = isDown('ArrowLeft', 'KeyA'), right = isDown('ArrowRight', 'KeyD');
-  const drift = isDown('Space', 'ShiftLeft', 'ShiftRight');
-  if (wasPressed('Space', 'ShiftLeft', 'ShiftRight')) R.driftArm = true;
+  const left = isDown('ArrowLeft', 'KeyA', 'PadLeft'), right = isDown('ArrowRight', 'KeyD', 'PadRight');
+  const drift = isDown('Space', 'ShiftLeft', 'ShiftRight', 'PadDrift');
+  if (wasPressed('Space', 'ShiftLeft', 'ShiftRight', 'PadDrift')) R.driftArm = true;
   if (!drift) R.driftArm = false;
+  const keySteer = (left ? 1 : 0) - (right ? 1 : 0);
   return {
-    up: isDown('ArrowUp', 'KeyW'), down: isDown('ArrowDown', 'KeyS'),
-    steer: (left ? 1 : 0) - (right ? 1 : 0),
+    up: isDown('ArrowUp', 'KeyW', 'PadGas'), down: isDown('ArrowDown', 'KeyS', 'PadBrake'),
+    steer: keySteer || pad.steer,
     drift, driftPressed: R.driftArm,
-    item: wasPressed('KeyX', 'KeyE'),
+    item: wasPressed('KeyX', 'KeyE', 'PadItem'),
+    back: isDown('ArrowDown', 'KeyS', 'PadBack'),
   };
 }
 
@@ -742,7 +794,7 @@ function updateRace(dt) {
     const n = Math.ceil(-R.t);
     if (n <= 3 && n !== R.lastCount) { R.lastCount = n; showMsg(String(n), 0.9); A.sfx.count(); }
     if (me) {
-      const up = isDown('ArrowUp', 'KeyW');
+      const up = isDown('ArrowUp', 'KeyW', 'PadGas');
       if (up && R.holdStart === null) R.holdStart = R.t;
       if (!up) R.holdStart = null;
     }
@@ -770,7 +822,7 @@ function updateRace(dt) {
         k.item = k.pendingItem; k.itemCount = k.item === 'turbo3' ? 3 : 1; k.pendingItem = null;
       }
     }
-    if (human) { if (inp.item && !R.paused) useItem(k, inp.down); }
+    if (human) { if (inp.item && !R.paused) useItem(k, inp.back); }
     else if (k.cpu && k.item && k.rouletteT <= 0) {
       k.ai.itemT += dt;
       if (k.ai.itemT > k.ai.itemWait) { useItem(k, false); k.ai.itemT = 0; k.ai.itemWait = 1 + Math.random() * 4; }
@@ -1070,6 +1122,7 @@ function loop(now) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
   last = now;
+  pollGamepad(dt);
   if (G.race) {
     updateRace(dt);
     renderer.render(G.race.scene, camera);
