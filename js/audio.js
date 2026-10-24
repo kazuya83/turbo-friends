@@ -133,6 +133,26 @@ const SONGS = {
       'B5 - - - A5 - G5 - D5 - - - - - . .',
     ],
   },
+  snow: {
+    bpm: 112, wave: 'triangle', leadVol: 0.09, kit: 'pop',
+    roots: ['D3', 'B2', 'G2', 'A2'],
+    melody: [
+      'F#5 - A5 - D6 - - - C#6 - A5 - B5 - - -',
+      'D5 - F#5 - B5 - - - A5 - F#5 - D5 - - -',
+      'G5 - B5 - D6 - B5 - A5 - G5 - F#5 - - -',
+      'E5 - G5 - A5 - C#6 - D6 - - - . . . .',
+    ],
+  },
+  beach: {
+    bpm: 140, wave: 'square', leadVol: 0.045, kit: 'calypso',
+    roots: ['F2', 'Bb2', 'C3', 'F2'],
+    melody: [
+      'A5 . C6 . A5 - F5 - G5 . A5 . F5 - - -',
+      'D6 . C6 . Bb5 - D6 - C6 - Bb5 - A5 - - -',
+      'G5 . A5 . Bb5 - C6 - E5 - G5 - C6 - - -',
+      'A5 - G5 - F5 - A5 - F5 - - - . . . .',
+    ],
+  },
 };
 const NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 function freq(name) {
@@ -219,6 +239,7 @@ const KITS = {
   pop: { kick: [0, 8], snare: [4, 12], hat: [2, 6, 10, 14] },
   tabla: { kick: [0, 6, 8], snare: [12], tom: [3, 4, 10, 14], hat: [2, 7, 11] },
   four: { kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14, 15] },
+  calypso: { kick: [0, 6, 8, 14], snare: [4, 12], hat: [2, 3, 6, 10, 11, 14], tom: [7, 15] },
 };
 function playStep(s, step, t, sd) {
   for (const n of s.lead) if (n.step === step) tone(s.wave, n.f, t, n.len * sd * 0.95, s.leadVol, s.wave === 'sawtooth' ? 2200 : 0);

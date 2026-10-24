@@ -10,6 +10,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 const SKY = {
   meadow: { elevation: 40, azimuth: 120, turbidity: 2, rayleigh: 0.9, bloom: 0.15, exposure: 0.62, sun: 2.6, hemi: 0.95 },
   desert: { elevation: 28, azimuth: 140, turbidity: 5, rayleigh: 1.6, bloom: 0.18, exposure: 0.58, sun: 2.9, hemi: 0.9 },
+  snow: { elevation: 25, azimuth: 200, turbidity: 2, rayleigh: 0.6, bloom: 0.15, exposure: 0.55, sun: 2.2, hemi: 0.9 },
+  beach: { elevation: 50, azimuth: 100, turbidity: 2, rayleigh: 1.2, bloom: 0.15, exposure: 0.6, sun: 2.6, hemi: 0.95 },
   city: { elevation: 30, azimuth: 120, bloom: 0.45, threshold: 0.8, exposure: 1.0, sun: 1, hemi: 1, night: true },
 };
 

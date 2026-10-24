@@ -1033,6 +1033,7 @@ function updateCamera(R, dt) {
   }
   camera.lookAt(k.x + dx * 4, 1.5, k.z + dz * 4);
   R.gfx.follow(k.x + dx * 20, k.z + dz * 20);
+  R.track.update?.(dt, camera.position);
   const fov = 68 + Math.max(0, k.speed) / k.stats.max * 6 + (k.boostT > 0 ? 8 : 0);
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 4));
   camera.updateProjectionMatrix();

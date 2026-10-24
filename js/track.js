@@ -112,10 +112,27 @@ export class Track {
       }
     });
     groundTex.repeat.set(400, 400);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000),
+    const b0 = this.bounds;
+    const islandR = Math.max(b0.maxX - b0.minX, b0.maxZ - b0.minZ) / 2 + 70;
+    const beach = this.def.deco === 'beach';
+    const ground = new THREE.Mesh(beach ? new THREE.CircleGeometry(islandR, 64) : new THREE.PlaneGeometry(4000, 4000),
       new THREE.MeshStandardMaterial({ color: 0xffffff, map: groundTex, roughness: 1, metalness: 0 }));
     ground.userData.noCast = true;
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05;
+    if (beach) {
+      ground.position.x = (b0.minX + b0.maxX) / 2; ground.position.z = (b0.minZ + b0.maxZ) / 2;
+      groundTex.repeat.set(islandR / 5, islandR / 5);
+      // まわりの海
+      const sea = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000),
+        new THREE.MeshStandardMaterial({ color: 0x1f8fc4, roughness: 0.08, metalness: 0.35 }));
+      sea.rotation.x = -Math.PI / 2; sea.position.y = -0.6; sea.userData.noCast = true;
+      g.add(sea);
+      const shore = new THREE.Mesh(new THREE.RingGeometry(islandR - 2, islandR + 14, 64),
+        new THREE.MeshStandardMaterial({ color: 0x7fe0e8, roughness: 0.1, transparent: true, opacity: 0.7 }));
+      shore.rotation.x = -Math.PI / 2; shore.position.set(ground.position.x, -0.3, ground.position.z); shore.userData.noCast = true;
+      g.add(shore);
+      this.islandR = islandR;
+    }
     g.add(ground);
 
     const roadTex = canvasTex(128, 128, (c, w, h) => {
@@ -263,6 +280,99 @@ export class Track {
         ([x, z]) => { const k = 50 + r() * 40; return { x, y: k * 0.4, z, sx: k, sy: k * 0.8, sz: k, ry: r() }; });
       const sun = new THREE.Mesh(new THREE.SphereGeometry(30, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff1b8, fog: false }));
       sun.position.set(400, 260, -500); g.add(sun);
+    } else if (this.def.deco === 'snow') {
+      const pines = this.scatter(r, 200, hw + 14, 240);
+      const sc = pines.map(() => 0.8 + r() * 1.0);
+      inst(new THREE.CylinderGeometry(0.4, 0.6, 3, 6), new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.9 }), pines,
+        ([x, z], i) => ({ x, y: 1.5 * sc[i], z, sx: sc[i], sy: sc[i], sz: sc[i] }));
+      for (const [k, yy, col] of [[1, 4.5, 0x1f5e3a], [0.72, 7, 0x24704a], [0.45, 9.2, 0x2a7d52]]) {
+        inst(new THREE.ConeGeometry(3.2 * k, 4.2, 9), new THREE.MeshStandardMaterial({ color: col, roughness: 0.8 }), pines,
+          ([x, z], i) => ({ x, y: yy * sc[i], z, sx: sc[i], sy: sc[i], sz: sc[i] }));
+        inst(new THREE.ConeGeometry(3.0 * k, 1.4, 9), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }), pines,
+          ([x, z], i) => ({ x, y: (yy + 1.6) * sc[i], z, sx: sc[i], sy: sc[i], sz: sc[i] }));
+      }
+      // 雪だるま
+      const snowmen = this.scatter(r, 16, hw + 10, 40);
+      const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
+      for (const [x, z] of snowmen) {
+        const sm = new THREE.Group();
+        for (const [rad, y] of [[1.3, 1.2], [0.95, 3.0], [0.7, 4.4]]) {
+          const b = new THREE.Mesh(new THREE.SphereGeometry(rad, 16, 12), white); b.position.y = y; sm.add(b);
+        }
+        const nose = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.6, 8), new THREE.MeshStandardMaterial({ color: 0xff7a1a }));
+        nose.rotation.x = Math.PI / 2; nose.position.set(0, 4.4, 0.85); sm.add(nose);
+        for (const s of [-1, 1]) {
+          const e = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+          e.position.set(s * 0.25, 4.6, 0.62); sm.add(e);
+        }
+        const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.7, 14), new THREE.MeshStandardMaterial({ color: 0xc0303a }));
+        hat.position.y = 5.2; sm.add(hat);
+        sm.position.set(x, 0, z); sm.rotation.y = r() * 6;
+        g.add(sm);
+      }
+      // 雪山の山並み
+      const mts = this.scatter(r, 12, 200, 520);
+      inst(new THREE.ConeGeometry(1, 1, 7), new THREE.MeshStandardMaterial({ color: 0x8fa3b8, roughness: 0.9, flatShading: true }), mts,
+        ([x, z]) => { const k = 70 + r() * 60; return { x, y: k * 0.5, z, sx: k, sy: k, sz: k, ry: r() * 3 }; });
+      inst(new THREE.ConeGeometry(1, 1, 7), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7, flatShading: true }), mts,
+        ([x, z], i) => { const k = (70 + ((i * 37) % 60)) * 0.45; return { x, y: 0, z, sx: 0, sy: 0, sz: 0 }; });
+      // 降る雪
+      const flakes = [];
+      for (let i = 0; i < 1800; i++) flakes.push((r() - 0.5) * 240, r() * 90, (r() - 0.5) * 240);
+      const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(flakes, 3));
+      this.snow = new THREE.Points(fg, new THREE.PointsMaterial({ color: 0xffffff, size: 0.45, transparent: true, opacity: 0.9, depthWrite: false }));
+      g.add(this.snow);
+    } else if (this.def.deco === 'beach') {
+      const palms = this.scatter(r, 90, hw + 12, Math.max(60, (this.islandR || 300) - 220));
+      const palmIn = palms.filter(([x, z]) => Math.hypot(x - (this.bounds.minX + this.bounds.maxX) / 2, z - (this.bounds.minZ + this.bounds.maxZ) / 2) < (this.islandR || 300) - 8);
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x9a6b3f, roughness: 0.9 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2e9e44, roughness: 0.7, side: THREE.DoubleSide });
+      for (const [x, z] of palmIn) {
+        const p = new THREE.Group();
+        const lean = (r() - 0.5) * 0.5, k = 0.8 + r() * 0.5;
+        for (let i = 0; i < 6; i++) {
+          const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.42 - i * 0.03, 0.5 - i * 0.03, 1.6, 8), trunkMat);
+          seg.position.set(Math.sin(lean) * i * 1.4 * i * 0.15, 0.8 + i * 1.5, 0); seg.rotation.z = -lean * i * 0.12;
+          p.add(seg);
+        }
+        const top = new THREE.Vector3(Math.sin(lean) * 5 * 0.9, 9.5, 0);
+        for (let i = 0; i < 7; i++) {
+          const leaf = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), leafMat);
+          leaf.scale.set(3.6, 0.12, 0.9);
+          const a = i / 7 * Math.PI * 2;
+          leaf.position.set(top.x + Math.cos(a) * 2.6, top.y - 0.6, Math.sin(a) * 2.6);
+          leaf.rotation.set(0, -a, -0.45);
+          p.add(leaf);
+        }
+        for (let i = 0; i < 3; i++) {
+          const nut = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), new THREE.MeshStandardMaterial({ color: 0x5a3a1a }));
+          nut.position.set(top.x + Math.cos(i * 2) * 0.5, top.y - 0.6, Math.sin(i * 2) * 0.5); p.add(nut);
+        }
+        p.scale.setScalar(k); p.position.set(x, 0, z); p.rotation.y = r() * 6;
+        g.add(p);
+      }
+      // パラソル
+      const cols = [0xff5f5f, 0xffd84a, 0x4aa8ff, 0x2ecc71];
+      for (const [x, z] of this.scatter(r, 18, hw + 10, 35)) {
+        const u = new THREE.Group();
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 4, 8), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        pole.position.y = 2; u.add(pole);
+        const top = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1, 16), new THREE.MeshStandardMaterial({ color: cols[(x | 0) & 3], roughness: 0.6 }));
+        top.position.y = 4.2; u.add(top);
+        u.position.set(x, 0, z); u.rotation.z = (r() - 0.5) * 0.2; g.add(u);
+      }
+      // 沖のヨット
+      for (let i = 0; i < 6; i++) {
+        const boat = new THREE.Group();
+        const hull = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 8), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        boat.add(hull);
+        const sail = new THREE.Mesh(new THREE.ConeGeometry(2.5, 8, 3), new THREE.MeshStandardMaterial({ color: 0xffeedd, side: THREE.DoubleSide }));
+        sail.position.y = 4.5; sail.scale.z = 0.1; boat.add(sail);
+        const a = r() * Math.PI * 2, d = (this.islandR || 300) + 60 + r() * 200;
+        boat.position.set((this.bounds.minX + this.bounds.maxX) / 2 + Math.cos(a) * d, 0, (this.bounds.minZ + this.bounds.maxZ) / 2 + Math.sin(a) * d);
+        boat.rotation.y = r() * 6; g.add(boat);
+      }
+      this.clouds(g, r);
     } else if (this.def.deco === 'city') {
       const winTex = canvasTex(64, 128, (c, w, h) => {
         c.fillStyle = '#151830'; c.fillRect(0, 0, w, h);
@@ -301,6 +411,20 @@ export class Track {
       const moon = new THREE.Mesh(new THREE.SphereGeometry(28, 20, 14), new THREE.MeshBasicMaterial({ color: 0xfff6d8, fog: false }));
       moon.position.set(-420, 300, -500); g.add(moon);
     }
+  }
+
+  // 毎フレームの動き（雪を降らせる）
+  update(dt, cam) {
+    if (!this.snow) return;
+    const pos = this.snow.geometry.attributes.position;
+    const a = pos.array;
+    for (let i = 0; i < a.length; i += 3) {
+      a[i + 1] -= dt * (6 + (i % 7));
+      a[i] += Math.sin((a[i + 1] + i) * 0.05) * dt * 1.5;
+      if (a[i + 1] < 0) a[i + 1] += 90;
+    }
+    pos.needsUpdate = true;
+    this.snow.position.set(Math.round(cam.x / 40) * 40, 0, Math.round(cam.z / 40) * 40);
   }
 
   clouds(g, r) {
