@@ -2,8 +2,8 @@
 import * as THREE from 'three';
 import { CHARS, TRACKS, ITEMS, ITEM_TABLE, LAPS, MAX_PLAYERS } from './data.js';
 import { Track } from './track.js';
-import { buildKartMesh, makeNameTag, buildCrystal, buildEntityMesh, buildPad, buildBurst } from './models.js';
-import { Kart, aiInput, wrapAngle } from './kart.js';
+import { buildKartMesh, animateRacer, makeNameTag, buildCrystal, buildEntityMesh, buildPad, buildBurst } from './models.js';
+import { Kart, aiInput, wrapAngle, HOP_TIME } from './kart.js';
 import { Net, makeCode } from './net.js';
 import * as A from './audio.js';
 
@@ -40,7 +40,7 @@ const menu = (() => {
   CHARS.forEach((c, i) => {
     const m = buildKartMesh(c);
     const a = i / CHARS.length * Math.PI * 2;
-    m.position.set(Math.cos(a) * 8, 0, Math.sin(a) * 8);
+    m.position.set(Math.cos(a) * 10, 0, Math.sin(a) * 10);
     m.rotation.y = Math.PI - a;
     ring.add(m);
   });
@@ -65,13 +65,15 @@ function setShowroomChar(i) {
 function updateMenuScene(dt) {
   const lobby = UI.screen === 'lobby';
   menu.ring.visible = !lobby; menu.solo.visible = lobby;
+  menu.t = (menu.t || 0) + dt;
+  for (const grp of [menu.ring, menu.solo]) for (const c of grp.children) animateRacer(c.userData, 14, menu.t, dt, c.userData);
   if (lobby) {
-    menu.solo.rotation.y += dt * 0.7;
-    menu.cam.position.set(0, 3, 9.5);
-    menu.cam.lookAt(innerWidth > 1000 ? 3.4 : 0, 1.0, 0);
+    if (!TEST.freeze) menu.solo.rotation.y += dt * 0.7;
+    menu.cam.position.set(0, 3.2, 10.5);
+    menu.cam.lookAt(innerWidth > 1000 ? 4.2 : 0, 1.5, 0);
   } else {
     menu.ring.rotation.y += dt * 0.25;
-    menu.cam.position.set(0, 6, 19);
+    menu.cam.position.set(0, 7, 23);
     menu.cam.lookAt(0, 1, 0);
   }
 }
@@ -524,6 +526,7 @@ function startRace(msg) {
     if (r.id !== G.myId) k.mesh.add(makeNameTag(r.cpu ? `${r.name}(CPU)` : r.name, ch.color));
     if (r.cpu) { k.ai.skill = 0.9 + Math.random() * 0.06; k.maxMul = k.ai.skill; k.ai.itemWait = 1 + Math.random() * 3; }
     k.onBoost = (kk) => { if (kk === R.me) A.sfx.boost(); };
+    k.onHop = (kk) => { if (kk === R.me) A.sfx.jump(); };
     k.onLap = (kk) => onLap(kk);
     scene.add(k.mesh);
     R.karts.set(k.id, k); R.list.push(k);
@@ -929,7 +932,7 @@ const r2 = (v) => Math.round(v * 100) / 100;
 function pack(k) {
   return {
     id: k.id, x: r2(k.x), z: r2(k.z), h: Math.round(k.h * 1000) / 1000, sp: r2(k.speed), p: r2(k.prog), lap: k.lap,
-    f: (k.spinT > 0 ? 1 : 0) | (k.drifting ? 2 : 0) | (k.boostT > 0 ? 4 : 0) | (k.shieldT > 0 ? 8 : 0),
+    f: (k.spinT > 0 ? 1 : 0) | (k.drifting ? 2 : 0) | (k.boostT > 0 ? 4 : 0) | (k.shieldT > 0 ? 8 : 0) | (k.hopT > 0 ? 16 : 0),
     d: k.driftDir, c: k.driftLevel(),
   };
 }
@@ -944,6 +947,9 @@ function applyState(st) {
   k.prog = st.p; k.lap = st.lap;
   k.vSpin = !!(st.f & 1); k.drifting = !!(st.f & 2); k.driftDir = st.d; k.vLevel = st.c;
   k.vBoost = !!(st.f & 4); k.shieldT = (st.f & 8) ? 1 : 0;
+  const hopping = !!(st.f & 16);
+  if (hopping && !k.vHop && k.hopT <= 0) k.hopT = HOP_TIME;
+  k.vHop = hopping;
 }
 
 function smoothRemote(k, dt) {
@@ -974,11 +980,13 @@ function netSend(R, dt) {
 function updateVisuals(R, dt) {
   for (const k of R.list) {
     const m = k.mesh, u = m.userData;
-    const hop = k.hopT > 0 ? Math.sin((0.25 - k.hopT) / 0.25 * Math.PI) * 0.5 : 0;
+    if (!k.controlled && k.hopT > 0) k.hopT -= dt;
+    const hop = k.hopT > 0 ? Math.sin((HOP_TIME - k.hopT) / HOP_TIME * Math.PI) * 1.3 : 0;
     m.position.set(k.x, hop, k.z);
     m.rotation.y = k.h + (k.drifting ? k.driftDir * 0.38 : 0);
     u.body.rotation.y = k.spinAngle;
     for (const w of u.wheels) w.rotation.x += k.speed * dt / 0.48;
+    animateRacer(u, k.hopT > 0 ? 0 : k.speed, R.t, dt, k);
     const boosting = k.controlled ? k.boostT > 0 : k.vBoost;
     u.flame.visible = boosting;
     if (boosting) u.flame.scale.setScalar(0.8 + Math.random() * 0.5);
@@ -1164,4 +1172,4 @@ function init() {
 init();
 
 // 動作確認用
-window.__tf = { G, UI, TEST, step: (dt) => G.race && updateRace(dt) };
+window.__tf = { G, UI, TEST, menu, step: (dt) => G.race && updateRace(dt) };

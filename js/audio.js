@@ -80,5 +80,6 @@ export const sfx = {
   shield: () => beep(500, 0.3, 'sine', 0.15, 1000),
   lap: () => { beep(784, 0.12, 'square', 0.12); setTimeout(() => beep(1046, 0.2, 'square', 0.12), 120); },
   finish: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.25, 'square', 0.14), i * 140)),
+  jump: () => beep(380, 0.18, 'triangle', 0.12, 760),
   bump: () => noise(0.12, 0.15, 600),
 };

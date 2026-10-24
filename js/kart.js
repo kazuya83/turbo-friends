@@ -9,6 +9,7 @@ export const wrapAngle = (a) => {
 
 export const NO_INPUT = { up: false, down: false, steer: 0, drift: false, driftPressed: false, item: false };
 const DRIFT_BOOST = [0, 0.6, 1.1, 1.6];
+export const HOP_TIME = 0.42;
 
 export class Kart {
   constructor({ id, name, char, cpu, controlled }) {
@@ -25,7 +26,7 @@ export class Kart {
     this.padCool = 0;
     this.ai = { lane: 0, laneTarget: 0, laneT: 0, itemT: 0, stuckT: 0, reverseT: 0 };
     this.net = null;
-    this.onBoost = null; this.onLap = null;
+    this.onBoost = null; this.onLap = null; this.onHop = null;
   }
 
   place(track, slot) {
@@ -104,7 +105,7 @@ export class Kart {
     }
     if (!this.drifting) {
       if (inp.driftPressed && s !== 0 && spd > 14 && this.hopT <= 0) {
-        this.drifting = true; this.driftDir = Math.sign(s); this.driftCharge = 0; this.hopT = 0.25;
+        this.drifting = true; this.driftDir = Math.sign(s); this.driftCharge = 0; this.hopT = HOP_TIME; this.onHop?.(this);
       } else {
         this.h += s * st.turn * dt * grip * (this.speed < 0 ? -1 : 1) * (1 - 0.25 * spd / st.max);
       }
