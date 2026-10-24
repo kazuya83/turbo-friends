@@ -49,6 +49,7 @@
       <tr><th>Space / Shift</th><td>ドリフト（曲がりながら押しっぱなし → はなすと加速。火花が 青→オレンジ→むらさき でより速い）</td></tr>
       <tr><th>X / E</th><td>アイテムを使う（↓を押しながらで後ろに投げる）</td></tr>
       <tr><th>Esc</th><td>レースをやめる</td></tr>
+      <tr><th>G</th><td>画質の切り替え（高 ／ 軽量）。動きが重いときは軽量に</td></tr>
     </table>
     <p class="tip">🎮 コントローラーでもあそべます：A / RT アクセル、B / LT ブレーキ、左スティック・十字キー ハンドル、LB / RB ドリフト、X / Y アイテム（スティック下で後ろに投げる）、START やめる。メニューは十字キーとA（けってい）・B（もどる）。</p>
     <p class="tip">スタートダッシュ：カウントの「1」が出たころにアクセルを押すと、GOで加速！早すぎるとエンスト…</p>
@@ -120,7 +121,7 @@
 <div id="overlay-msg" class="hidden"><div class="panel"><p id="overlay-text"></p><p class="keys">Enter OK</p></div></div>
 
 <script type="importmap">
-{ "imports": { "three": "./vendor/three.module.min.js" } }
+{ "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
 </script>
 <script src="vendor/peerjs.min.js"></script>
 <script type="module" src="js/main.js"></script>

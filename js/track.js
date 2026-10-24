@@ -98,8 +98,23 @@ export class Track {
     const th = this.def.theme;
     const hw = this.hw;
 
+    // 地面：色ムラのある草・砂・アスファルトの質感
+    const groundTex = canvasTex(256, 256, (c, w, h) => {
+      const base = new THREE.Color(th.ground);
+      c.fillStyle = '#' + base.getHexString(); c.fillRect(0, 0, w, h);
+      const r = rng(11);
+      for (let i = 0; i < 2600; i++) {
+        const k = 0.75 + r() * 0.5;
+        const col = base.clone().multiplyScalar(k);
+        c.fillStyle = `rgba(${col.r * 255 | 0},${col.g * 255 | 0},${col.b * 255 | 0},0.55)`;
+        const s = 1 + r() * 3;
+        c.fillRect(r() * w, r() * h, s, s * (th.night ? 1 : 2));
+      }
+    });
+    groundTex.repeat.set(400, 400);
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000),
-      new THREE.MeshLambertMaterial({ color: th.ground }));
+      new THREE.MeshStandardMaterial({ color: 0xffffff, map: groundTex, roughness: 1, metalness: 0 }));
+    ground.userData.noCast = true;
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05;
     g.add(ground);
 
@@ -115,7 +130,8 @@ export class Track {
       c.fillRect(w / 2 - 2, 0, 4, h / 2);
     });
     const road = new THREE.Mesh(this.ribbon(-hw, hw, 0.02, 0.02, 14),
-      new THREE.MeshLambertMaterial({ map: roadTex, side: THREE.DoubleSide }));
+      new THREE.MeshStandardMaterial({ map: roadTex, bumpMap: roadTex, bumpScale: 0.6, roughness: th.night ? 0.55 : 0.85, metalness: 0, side: THREE.DoubleSide }));
+    road.userData.noCast = true;
     g.add(road);
 
     const curbTex = canvasTex(4, 64, (c, w, h) => {
@@ -125,12 +141,14 @@ export class Track {
     const curbMat = th.night
       ? new THREE.MeshBasicMaterial({ map: curbTex, side: THREE.DoubleSide })
       : new THREE.MeshLambertMaterial({ map: curbTex, side: THREE.DoubleSide });
-    g.add(new THREE.Mesh(this.ribbon(hw, hw + 1.4, 0.04, 0.04, 5), curbMat));
-    g.add(new THREE.Mesh(this.ribbon(-hw - 1.4, -hw, 0.04, 0.04, 5), curbMat));
+    for (const [a, b] of [[hw, hw + 1.4], [-hw - 1.4, -hw]]) {
+      const curb = new THREE.Mesh(this.ribbon(a, b, 0.04, 0.04, 5), curbMat);
+      curb.userData.noCast = true; g.add(curb);
+    }
 
     // 外側の壁
     const wallOff = hw + 8;
-    const wallMat = new THREE.MeshLambertMaterial({ color: th.wall, side: THREE.DoubleSide });
+    const wallMat = new THREE.MeshStandardMaterial({ color: th.wall, roughness: 0.8, side: THREE.DoubleSide });
     g.add(new THREE.Mesh(this.ribbon(wallOff, wallOff, 0, 1.4, 10), wallMat));
     g.add(new THREE.Mesh(this.ribbon(-wallOff, -wallOff, 0, 1.4, 10), wallMat));
     if (th.night) {

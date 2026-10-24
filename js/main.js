@@ -6,13 +6,14 @@ import { buildKartMesh, animateRacer, makeNameTag, buildCrystal, buildEntityMesh
 import { Kart, aiInput, wrapAngle, HOP_TIME } from './kart.js';
 import { Net, makeCode } from './net.js';
 import * as A from './audio.js';
+import { initRenderer, setupRace, prepareObject, toggleQuality, GFX } from './graphics.js';
 
 const $ = (id) => document.getElementById(id);
 const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 保存できなくても続行 */ } },
 };
-const TEST = { auto: false };
+const TEST = { auto: false, noAuto: false };
 const SPARK = [0, 0x4fc3ff, 0xff9a2e, 0xc77dff];
 const ITEM_DESC = {
   turbo: '一瞬だけ大加速', turbo3: 'ターボが3回使える', slime: '後ろに置くワナ。ふむとスピン',
@@ -24,6 +25,7 @@ const renderer = new THREE.WebGLRenderer({ canvas: $('view'), antialias: true })
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+initRenderer(renderer);
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.5, 2500);
 
 const menu = (() => {
@@ -52,6 +54,7 @@ const menu = (() => {
 
 addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
+  G.race?.gfx?.resize(innerWidth, innerHeight);
   for (const c of [camera, menu.cam]) { c.aspect = innerWidth / innerHeight; c.updateProjectionMatrix(); }
 });
 
@@ -153,6 +156,7 @@ function onKey(e) {
     return;
   }
   if (e.code === 'KeyM' && !typing()) { const m = A.toggleMute(); toast(m ? '音オフ' : '音オン'); }
+  if (e.code === 'KeyG' && !typing()) { const h = toggleQuality(renderer, G.race?.gfx); toast(h ? '画質：高' : '画質：軽量'); }
   if (UI.screen) menuKey(e);
   else if (G.race) raceKey(e);
 }
@@ -503,9 +507,6 @@ function startRace(msg) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(th.sky);
   scene.fog = new THREE.Fog(th.fog, th.fogNear, th.fogFar);
-  scene.add(new THREE.HemisphereLight(th.hemi[0], th.hemi[1], th.hemi[2]));
-  const sun = new THREE.DirectionalLight(0xffffff, th.sun);
-  sun.position.set(200, 300, 100); scene.add(sun);
   scene.add(track.build());
 
   const R = {
@@ -523,7 +524,10 @@ function startRace(msg) {
     k.charIdx = r.char;
     k.place(track, r.slot);
     k.mesh = buildKartMesh(ch);
-    if (r.id !== G.myId) k.mesh.add(makeNameTag(r.cpu ? `${r.name}(CPU)` : r.name, ch.color));
+    if (r.id !== G.myId) {
+      const tag = makeNameTag(r.cpu ? `${r.name}(CPU)` : r.name, ch.color);
+      k.mesh.add(tag); k.mesh.userData.tag = tag;
+    }
     if (r.cpu) { k.ai.skill = 0.9 + Math.random() * 0.06; k.maxMul = k.ai.skill; k.ai.itemWait = 1 + Math.random() * 3; }
     k.onBoost = (kk) => { if (kk === R.me) A.sfx.boost(); };
     k.onHop = (kk) => { if (kk === R.me) A.sfx.jump(); };
@@ -550,6 +554,8 @@ function startRace(msg) {
     R.pads.push({ x, z, h: track.heading(i) });
   }
 
+  R.gfx = setupRace(renderer, scene, camera, def);
+  R.fps = { frames: 0, time: 0, checked: false };
   prepareMinimap(R);
   rank(R);
   $('hud').classList.remove('hidden');
@@ -562,6 +568,7 @@ function endRace() {
   const R = G.race;
   if (!R) return;
   G.race = null;
+  R.gfx?.dispose();
   R.scene.traverse((o) => {
     o.geometry?.dispose?.();
     const ms = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
@@ -683,6 +690,7 @@ function spawnEntity(e, local) {
   if (!e || R.ents.has(e.id)) return;
   const ent = { ...e, age: 0, idx: -1, bounces: 0, mesh: buildEntityMesh(e.kind) };
   ent.mesh.position.set(e.x, 0, e.z);
+  prepareObject(ent.mesh);
   R.scene.add(ent.mesh);
   R.ents.set(e.id, ent);
   if (local) sendEvent({ type: 'spawn', e });
@@ -813,6 +821,14 @@ function updateRace(dt) {
     for (const k of R.list) if (k.cpu && k.controlled && Math.random() < 0.4) k.boost(0.9);
   }
   const racing = R.t >= 0;
+  // 重いPCでは自動で軽量画質にする
+  if (GFX.high && !R.fps.checked && !TEST.noAuto && R.t > 1) {
+    R.fps.frames++; R.fps.time += dt;
+    if (R.fps.time > 5) {
+      R.fps.checked = true;
+      if (R.fps.frames / R.fps.time < 28) { toggleQuality(renderer, R.gfx); toast('動きが重いので画質を軽量にしました（Gで戻せます）'); }
+    }
+  }
 
   for (const k of R.list) {
     if (!k.controlled) { smoothRemote(k, dt); continue; }
@@ -998,6 +1014,7 @@ function updateVisuals(R, dt) {
       if (lv > 0) { s.material.color.setHex(SPARK[lv]); s.scale.setScalar(0.6 + Math.random() * 0.8); }
     }
     u.shield.visible = k.shieldT > 0;
+    if (u.tag) u.tag.visible = camera.position.distanceToSquared(m.position) > 80;
   }
 }
 
@@ -1015,6 +1032,7 @@ function updateCamera(R, dt) {
     camera.position.z += (tz - camera.position.z) * a;
   }
   camera.lookAt(k.x + dx * 4, 1.5, k.z + dz * 4);
+  R.gfx.follow(k.x + dx * 20, k.z + dz * 20);
   const fov = 68 + Math.max(0, k.speed) / k.stats.max * 6 + (k.boostT > 0 ? 8 : 0);
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 4));
   camera.updateProjectionMatrix();
@@ -1135,7 +1153,7 @@ function loop(now) {
   pollGamepad(dt);
   if (G.race) {
     updateRace(dt);
-    renderer.render(G.race.scene, camera);
+    G.race.gfx.render();
   } else {
     updateMenuScene(dt);
     renderer.render(menu.scene, menu.cam);
