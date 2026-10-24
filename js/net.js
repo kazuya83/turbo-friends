@@ -2,6 +2,14 @@
 const PREFIX = 'turbofriends-v1-';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+// 動作確認用：?peerserver=host:port で自前のシグナリングサーバーを使う
+function peerOptions() {
+  const ps = new URLSearchParams(location.search).get('peerserver');
+  if (!ps) return { debug: 0 };
+  const [host, port] = ps.split(':');
+  return { debug: 0, host, port: Number(port) || 9000, path: '/', secure: false };
+}
+
 export function makeCode() {
   let s = '';
   for (let i = 0; i < 4; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
@@ -25,7 +33,7 @@ export class Net {
   host(code) {
     this.isHost = true;
     return new Promise((resolve, reject) => {
-      const peer = new window.Peer(PREFIX + code, { debug: 0 });
+      const peer = new window.Peer(PREFIX + code, peerOptions());
       this.peer = peer;
       let opened = false;
       peer.on('open', (id) => { opened = true; this.myId = id; resolve(code); });
@@ -43,7 +51,7 @@ export class Net {
   join(code) {
     this.isHost = false;
     return new Promise((resolve, reject) => {
-      const peer = new window.Peer({ debug: 0 });
+      const peer = new window.Peer(peerOptions());
       this.peer = peer;
       let done = false;
       const fail = (e) => { if (!done) { done = true; reject(e); } else if (!this.closed) this.emit('hostLost'); };
