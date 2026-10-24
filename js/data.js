@@ -4,18 +4,18 @@ export const LAPS = 3;
 export const MAX_PLAYERS = 4;
 
 export const CHARS = [
-  { id: 'sora', name: 'ソラ', type: 'スピード型', desc: '最高速がとにかく速い。加速はゆっくり。',
-    color: 0x3d8bff, skin: 0xffd9b8, acc: 'antenna', speed: 5, accel: 2, handling: 3, weight: 3 },
-  { id: 'poko', name: 'ポコ', type: '加速型', desc: 'ぶつかってもすぐ立ち直れるダッシュ力。',
-    color: 0xffb02e, skin: 0xf3c99a, acc: 'ears', speed: 2, accel: 5, handling: 4, weight: 2 },
-  { id: 'rin', name: 'リン', type: '曲がり型', desc: 'カーブがとても得意なドリフト名人。',
-    color: 0xff5fa2, skin: 0xffe0cc, acc: 'bow', speed: 3, accel: 3, handling: 5, weight: 2 },
-  { id: 'gantetsu', name: 'ガンテツ', type: '重量型', desc: '重くて押し負けない。曲がるのは苦手。',
-    color: 0x7a5cff, skin: 0xd9a37a, acc: 'horns', speed: 5, accel: 3, handling: 1, weight: 5 },
-  { id: 'mint', name: 'ミント', type: 'バランス型', desc: 'クセがなく、だれでも扱いやすい。',
-    color: 0x2ecc9a, skin: 0xffe6d0, acc: 'leaf', speed: 4, accel: 3, handling: 3, weight: 3 },
-  { id: 'volt', name: 'ボルト', type: 'ロケット型', desc: '加速も最高速も高いが、すべりやすい。',
-    color: 0xff4d3d, skin: 0xe8b48c, acc: 'mohawk', speed: 4, accel: 4, handling: 2, weight: 3 },
+  { id: 'biritto', name: 'ビリット', type: 'でんき・スピード型', desc: 'ビリビリ角のでんきモンスター。最高速がとにかく速い。',
+    color: 0x2b6cff, body: 0x6fe3ff, acc: 'bolt', speed: 5, accel: 2, handling: 3, weight: 3 },
+  { id: 'fuwari', name: 'フワリ', type: 'かぜ・加速型', desc: 'ふわふわ雲のモンスター。ぶつかってもすぐ立ち直る。',
+    color: 0xffb02e, body: 0xf7f7ff, acc: 'wings', speed: 2, accel: 5, handling: 4, weight: 2 },
+  { id: 'shizuku', name: 'シズク', type: 'みず・曲がり型', desc: 'しずく形のみずモンスター。カーブがとても得意。',
+    color: 0xff5fa2, body: 0x4aa8ff, acc: 'fin', speed: 3, accel: 3, handling: 5, weight: 2 },
+  { id: 'goron', name: 'ゴロン', type: 'いわ・重量型', desc: 'ゴツゴツいわモンスター。重くて押し負けない。',
+    color: 0x7a5cff, body: 0x9a8f86, acc: 'rock', speed: 5, accel: 3, handling: 1, weight: 5 },
+  { id: 'mokko', name: 'モッコ', type: 'くさ・バランス型', desc: '頭に芽が生えたくさモンスター。だれでも扱いやすい。',
+    color: 0x2ecc9a, body: 0x8fd46a, acc: 'sprout', speed: 4, accel: 3, handling: 3, weight: 3 },
+  { id: 'homura', name: 'ホムラ', type: 'ほのお・ロケット型', desc: '頭がメラメラ燃えるほのおモンスター。速いがすべりやすい。',
+    color: 0xff4d3d, body: 0xff8a3d, acc: 'flame', speed: 4, accel: 4, handling: 2, weight: 3 },
 ];
 
 export function statsOf(c) {

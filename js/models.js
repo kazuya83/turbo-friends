@@ -3,12 +3,6 @@ import * as THREE from 'three';
 
 const lambert = (color, extra = {}) => new THREE.MeshLambertMaterial({ color, ...extra });
 
-function lighten(hex, k) {
-  const c = new THREE.Color(hex);
-  c.lerp(new THREE.Color(0xffffff), k);
-  return c;
-}
-
 export function buildKartMesh(ch) {
   const g = new THREE.Group();
   const body = new THREE.Group();
@@ -41,21 +35,25 @@ export function buildKartMesh(ch) {
     body.add(w); wheels.push(w);
   }
 
-  // ドライバー
-  const suit = lambert(lighten(ch.color, 0.25));
-  add(new THREE.CylinderGeometry(0.36, 0.42, 0.75, 10), suit, 0, 1.3, -0.25);
+  // モンスター（運転手）
   const head = new THREE.Group();
-  head.position.set(0, 1.98, -0.2);
+  head.position.set(0, 1.55, -0.25);
   body.add(head);
-  add(new THREE.SphereGeometry(0.46, 16, 12), lambert(ch.skin), 0, 0, 0, head);
-  const helmet = add(new THREE.SphereGeometry(0.5, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2.1), main, 0, 0.05, -0.04, head);
-  helmet.rotation.x = -0.25;
-  const eye = lambert(0x1b1b1b);
-  add(new THREE.SphereGeometry(0.07, 8, 6), eye, 0.16, 0.02, 0.42, head);
-  add(new THREE.SphereGeometry(0.07, 8, 6), eye, -0.16, 0.02, 0.42, head);
-  add(new THREE.SphereGeometry(0.06, 8, 6), lambert(0xff8a8a), 0.27, -0.12, 0.36, head);
-  add(new THREE.SphereGeometry(0.06, 8, 6), lambert(0xff8a8a), -0.27, -0.12, 0.36, head);
-  accessory(head, ch, main);
+  const skin = lambert(ch.body);
+  const blob = add(new THREE.SphereGeometry(0.72, 20, 16), skin, 0, 0, 0, head);
+  blob.scale.set(1, 0.92, 0.95);
+  const white = lambert(0xffffff), eye = lambert(0x1b1b1b);
+  for (const s of [-1, 1]) {
+    const w = add(new THREE.SphereGeometry(0.2, 12, 10), white, s * 0.25, 0.12, 0.58, head);
+    w.scale.set(1, 1.15, 0.6);
+    add(new THREE.SphereGeometry(0.11, 10, 8), eye, s * 0.25, 0.12, 0.7, head);
+    add(new THREE.SphereGeometry(0.04, 6, 4), white, s * 0.25 + 0.04, 0.17, 0.79, head);
+    // 小さな手
+    add(new THREE.SphereGeometry(0.16, 8, 6), skin, s * 0.45, -0.38, 0.55, head);
+  }
+  const mouth = add(new THREE.TorusGeometry(0.1, 0.03, 6, 12, Math.PI), eye, 0, -0.12, 0.66, head);
+  mouth.rotation.z = Math.PI;
+  accessory(head, ch);
 
   // 影
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.9, 20),
@@ -88,50 +86,63 @@ export function buildKartMesh(ch) {
   return g;
 }
 
-function accessory(head, ch, main) {
-  const c = lambert(ch.color);
+function accessory(head, ch) {
   const m = (geo, mat, x, y, z) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); head.add(o); return o; };
   switch (ch.acc) {
-    case 'antenna': {
-      m(new THREE.CylinderGeometry(0.04, 0.04, 0.6, 6), lambert(0x999999), 0, 0.75, -0.05);
-      m(new THREE.SphereGeometry(0.14, 10, 8), lambert(0xffe14d, { emissive: 0x665500 }), 0, 1.1, -0.05);
-      break;
-    }
-    case 'ears': {
+    case 'bolt': { // ギザギザの角2本
+      const mat = lambert(0xffe14d, { emissive: 0x554400 });
       for (const s of [-1, 1]) {
-        const e = m(new THREE.ConeGeometry(0.18, 0.5, 8), c, s * 0.3, 0.6, 0);
-        e.rotation.z = -s * 0.35;
-        const inner = m(new THREE.ConeGeometry(0.1, 0.32, 8), lambert(0xffc0c0), s * 0.3, 0.58, 0.07);
-        inner.rotation.z = -s * 0.35;
+        const a1 = m(new THREE.BoxGeometry(0.12, 0.35, 0.12), mat, s * 0.32, 0.72, 0);
+        a1.rotation.z = -s * 0.5;
+        const a2 = m(new THREE.BoxGeometry(0.12, 0.35, 0.12), mat, s * 0.38, 0.98, 0);
+        a2.rotation.z = s * 0.5;
       }
       break;
     }
-    case 'bow': {
-      const bm = lambert(0xffffff);
+    case 'wings': { // 雲のもこもこと小さな羽
+      const mat = lambert(0xffffff);
+      for (const [x, y, z, r] of [[0, 0.62, 0, 0.3], [0.3, 0.5, -0.1, 0.25], [-0.3, 0.5, -0.1, 0.25]]) m(new THREE.SphereGeometry(r, 10, 8), mat, x, y, z);
       for (const s of [-1, 1]) {
-        const b = m(new THREE.ConeGeometry(0.2, 0.42, 4), bm, s * 0.24, 0.55, -0.15);
-        b.rotation.z = s * Math.PI / 2;
-      }
-      m(new THREE.SphereGeometry(0.1, 8, 6), bm, 0, 0.55, -0.15);
-      break;
-    }
-    case 'horns': {
-      for (const s of [-1, 1]) {
-        const h = m(new THREE.ConeGeometry(0.12, 0.5, 8), lambert(0xf5f0e0), s * 0.38, 0.45, 0);
-        h.rotation.z = -s * 0.7;
+        const w = m(new THREE.SphereGeometry(0.3, 10, 6), lambert(0xbfe6ff), s * 0.8, 0.15, -0.15);
+        w.scale.set(0.35, 0.9, 0.6); w.rotation.z = -s * 0.6;
       }
       break;
     }
-    case 'leaf': {
-      m(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 5), lambert(0x6b4a2b), 0, 0.62, 0);
-      const l = m(new THREE.SphereGeometry(0.2, 10, 6), lambert(0x7ee081), 0.15, 0.78, 0);
-      l.scale.set(1.4, 0.35, 0.8); l.rotation.z = 0.4;
+    case 'fin': { // しずくのとがった頭とヒレ
+      const mat = lambert(0x4aa8ff);
+      const tip = m(new THREE.ConeGeometry(0.42, 0.8, 16), mat, 0, 0.85, -0.05);
+      tip.rotation.x = -0.25;
+      for (const s of [-1, 1]) {
+        const f = m(new THREE.ConeGeometry(0.16, 0.5, 8), lambert(0xaee3ff), s * 0.75, 0.1, -0.1);
+        f.rotation.z = s * 1.3;
+      }
       break;
     }
-    case 'mohawk': {
-      for (let i = 0; i < 4; i++) {
-        const f = m(new THREE.ConeGeometry(0.11, 0.4, 6), lambert(0xffd84a), 0, 0.6 - i * 0.03, 0.18 - i * 0.16);
-        f.rotation.x = -0.3 - i * 0.15;
+    case 'rock': { // ゴツゴツの岩
+      const mat = lambert(0x6f655d, { flatShading: true });
+      for (const [x, y, z] of [[0, 0.68, -0.05], [0.4, 0.5, -0.2], [-0.42, 0.48, -0.15], [0.15, 0.4, -0.55], [-0.2, 0.3, -0.6]]) {
+        const r = m(new THREE.DodecahedronGeometry(0.22, 0), mat, x, y, z);
+        r.rotation.set(x * 3, y * 4, z * 2);
+      }
+      break;
+    }
+    case 'sprout': { // 頭の芽と葉っぱの耳
+      m(new THREE.CylinderGeometry(0.04, 0.05, 0.4, 6), lambert(0x3f8f2f), 0, 0.85, 0);
+      const leafMat = lambert(0x4fc94a);
+      for (const s of [-1, 1]) {
+        const l = m(new THREE.SphereGeometry(0.2, 10, 6), leafMat, s * 0.18, 1.05, 0);
+        l.scale.set(1.4, 0.3, 0.8); l.rotation.z = s * 0.5;
+        const ear = m(new THREE.SphereGeometry(0.25, 10, 6), leafMat, s * 0.62, 0.45, -0.05);
+        ear.scale.set(0.35, 1, 0.7); ear.rotation.z = -s * 0.7;
+      }
+      break;
+    }
+    case 'flame': { // メラメラの炎
+      const fm = [0xffd84a, 0xff9a2e, 0xff4d3d];
+      for (let i = 0; i < 3; i++) {
+        const f = m(new THREE.ConeGeometry(0.32 - i * 0.07, 0.75 - i * 0.12, 10),
+          new THREE.MeshBasicMaterial({ color: fm[i] }), (i - 1) * 0.22, 0.85 + (i === 1 ? 0.12 : 0), -0.1 - i * 0.03);
+        f.rotation.z = (1 - i) * 0.3;
       }
       break;
     }
