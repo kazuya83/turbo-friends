@@ -12,6 +12,7 @@ const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 保存できなくても続行 */ } },
 };
+const TEST = { auto: false };
 const SPARK = [0, 0x4fc3ff, 0xff9a2e, 0xc77dff];
 const ITEM_DESC = {
   turbo: '一瞬だけ大加速', turbo3: 'ターボが3回使える', slime: '後ろに置くワナ。ふむとスピン',
@@ -759,7 +760,7 @@ function updateRace(dt) {
   for (const k of R.list) {
     if (!k.controlled) { smoothRemote(k, dt); continue; }
     if (!racing) continue;
-    const human = k === me && !k.finished;
+    const human = k === me && !k.finished && !TEST.auto;
     const inp = human ? myInput(R) : aiInput(k, R.track, dt);
     k.update(dt, inp, R.track);
     if (k === me && k.drifting) R.driftArm = false;
@@ -1079,7 +1080,23 @@ function loop(now) {
   pressed.clear();
 }
 
+// タブが裏に回っても親のレースが止まらないよう、Workerのタイマーで進める
+function startBackgroundTicker() {
+  try {
+    const src = 'setInterval(() => postMessage(0), 50);';
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    let prev = performance.now();
+    w.onmessage = () => {
+      const now = performance.now();
+      const dt = Math.min(0.05, (now - prev) / 1000);
+      prev = now;
+      if (document.hidden && G.race && !G.solo) { updateRace(dt); last = now; }
+    };
+  } catch (e) { /* 使えない環境では何もしない */ }
+}
+
 function init() {
+  startBackgroundTicker();
   $('in-name').value = store.get('tf-name', '');
   $('items-help').innerHTML = Object.entries(ITEMS).map(([k, v]) => `<div>${v.icon} <b>${v.name}</b>：${ITEM_DESC[k]}</div>`).join('');
   const room = new URLSearchParams(location.search).get('room');
@@ -1093,5 +1110,5 @@ function init() {
 }
 init();
 
-// テスト用
-window.__tf = { G, UI };
+// 動作確認用
+window.__tf = { G, UI, TEST, step: (dt) => G.race && updateRace(dt) };
