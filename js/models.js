@@ -11,6 +11,7 @@ function lighten(hex, k) {
 
 // キャラの見た目。カートに乗るキャラと、自分の足で走るキャラがいる
 export function buildKartMesh(ch) {
+  if (ch.animal) return buildAnimal(ch);
   return ch.runner ? buildRunner(ch) : buildKart(ch);
 }
 
@@ -263,14 +264,119 @@ function buildHead(ch, anims) {
   return head;
 }
 
-// 毎フレームのキャラの動き（足・腕・鼻水など）
+// 犬・猫・恐竜（4本足または2本足で走る）
+function buildAnimal(ch) {
+  const g = new THREE.Group();
+  const body = new THREE.Group();
+  g.add(body);
+  const fur = lambert(ch.color), sub = lambert(ch.sub), black = lambert(0x1b1b1b), white = lambert(0xffffff);
+  const add = (geo, mat, x, y, z, parent = body) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); parent.add(o); return o; };
+  const legs = [], arms = [], anims = [];
+  const legPhase = [];
+  const kind = ch.animal;
+
+  if (kind === 'dino') {
+    const torso = add(new THREE.SphereGeometry(0.9, 16, 12), fur, 0, 1.9, -0.1);
+    torso.scale.set(0.9, 1.0, 1.3); torso.rotation.x = -0.35;
+    add(new THREE.SphereGeometry(0.62, 14, 10), sub, 0, 1.75, 0.45).scale.set(0.9, 1.1, 0.6);
+    const head = new THREE.Group(); head.position.set(0, 3.0, 0.75); body.add(head);
+    add(new THREE.BoxGeometry(0.85, 0.7, 1.2), fur, 0, 0, 0.15, head);
+    const jaw = add(new THREE.BoxGeometry(0.8, 0.22, 1.05), fur, 0, -0.42, 0.18, head);
+    for (let i = 0; i < 4; i++) add(new THREE.ConeGeometry(0.06, 0.16, 4), white, -0.3 + i * 0.2, -0.27, 0.68, head).rotation.x = Math.PI;
+    for (const s of [-1, 1]) {
+      add(new THREE.SphereGeometry(0.15, 10, 8), white, s * 0.3, 0.22, 0.35, head);
+      add(new THREE.SphereGeometry(0.08, 8, 6), black, s * 0.33, 0.24, 0.47, head);
+      add(new THREE.SphereGeometry(0.04, 6, 4), black, s * 0.15, 0.12, 0.76, head);
+    }
+    anims.push({ type: 'jaw', obj: jaw });
+    // 背中のトゲ
+    for (let i = 0; i < 5; i++) add(new THREE.ConeGeometry(0.14, 0.35, 4), sub, 0, 2.75 - i * 0.28, 0.2 - i * 0.4);
+    for (const s of [-1, 1]) {
+      const leg = new THREE.Group(); leg.position.set(s * 0.5, 1.5, -0.2);
+      add(new THREE.CylinderGeometry(0.32, 0.2, 1.0, 10), fur, 0, -0.45, 0, leg);
+      add(new THREE.BoxGeometry(0.4, 0.2, 0.65), fur, 0, -1.4, 0.15, leg);
+      add(new THREE.CylinderGeometry(0.14, 0.14, 0.5, 8), fur, 0, -1.1, 0, leg);
+      body.add(leg); legs.push(leg); legPhase.push(s > 0 ? 0 : Math.PI);
+      const arm = new THREE.Group(); arm.position.set(s * 0.55, 2.2, 0.55);
+      add(new THREE.CylinderGeometry(0.07, 0.06, 0.4, 6), fur, 0, -0.18, 0.05, arm).rotation.x = 0.8;
+      body.add(arm); arms.push(arm);
+    }
+    const tail = new THREE.Group(); tail.position.set(0, 1.7, -1.1); body.add(tail);
+    add(new THREE.ConeGeometry(0.45, 2.0, 10), fur, 0, 0, -0.9, tail).rotation.x = -Math.PI / 2 - 0.2;
+    anims.push({ type: 'tail', obj: tail, speed: 5, amp: 0.25 });
+  } else {
+    // 4本足（犬・猫）
+    const cat = kind === 'cat';
+    const torso = add(new THREE.SphereGeometry(0.7, 16, 12), fur, 0, 1.25, -0.1);
+    torso.scale.set(cat ? 1.15 : 0.85, cat ? 0.95 : 0.8, 1.55);
+    const belly = add(new THREE.SphereGeometry(0.5, 12, 10), sub, 0, 1.0, 0.0);
+    belly.scale.set(cat ? 1.2 : 0.9, 0.6, 1.5);
+    const head = new THREE.Group(); head.position.set(0, 2.0, 1.05); body.add(head);
+    add(new THREE.SphereGeometry(0.55, 16, 12), fur, 0, 0, 0, head).scale.set(cat ? 1.1 : 1, 0.95, 1);
+    add(new THREE.SphereGeometry(0.3, 12, 10), sub, 0, -0.15, 0.4, head).scale.set(1.1, 0.75, 0.9);
+    add(new THREE.SphereGeometry(0.1, 8, 6), cat ? lambert(0xff8fab) : black, 0, -0.02, 0.66, head);
+    for (const s of [-1, 1]) {
+      if (cat) { // ふてくされた半目
+        add(new THREE.SphereGeometry(0.12, 10, 8), lambert(0xd8f27a), s * 0.22, 0.12, 0.45, head);
+        const lid = add(new THREE.SphereGeometry(0.13, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), fur, s * 0.22, 0.13, 0.46, head);
+        lid.rotation.x = -0.2;
+        add(new THREE.BoxGeometry(0.1, 0.05, 0.05), black, s * 0.22, 0.1, 0.56, head);
+        const ear = add(new THREE.ConeGeometry(0.2, 0.4, 4), fur, s * 0.32, 0.55, -0.05, head);
+        ear.rotation.z = -s * 0.25;
+        for (const k of [-1, 1]) {
+          const wh = add(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 4), white, s * 0.38, -0.12 + k * 0.05, 0.45, head);
+          wh.rotation.z = Math.PI / 2 + k * 0.15;
+        }
+      } else {
+        add(new THREE.SphereGeometry(0.09, 8, 6), black, s * 0.2, 0.15, 0.48, head);
+        const ear = add(new THREE.SphereGeometry(0.22, 10, 8), sub, s * 0.5, 0.05, -0.05, head);
+        ear.scale.set(0.45, 1.3, 0.8);
+        anims.push({ type: 'ear', obj: ear, side: s });
+      }
+    }
+    if (!cat) { // ベロを出している
+      const tongue = add(new THREE.BoxGeometry(0.16, 0.04, 0.3), lambert(0xff6b8a), 0.05, -0.33, 0.6, head);
+      tongue.rotation.x = 0.7;
+      anims.push({ type: 'tongue', obj: tongue });
+    } else {
+      // 太ったお腹のしま
+      for (let i = 0; i < 3; i++) add(new THREE.TorusGeometry(0.72, 0.05, 4, 20, Math.PI), lambert(ch.stripe), 0, 1.3, -0.5 + i * 0.35).rotation.y = Math.PI / 2;
+    }
+    const L = cat ? 0.55 : 0.75;
+    const pos = [[0.35, 0.7], [-0.35, 0.7], [0.35, -0.75], [-0.35, -0.75]];
+    pos.forEach(([x, z], i) => {
+      const leg = new THREE.Group(); leg.position.set(x * (cat ? 1.2 : 1), 1.0, z);
+      add(new THREE.CylinderGeometry(0.13, 0.11, L, 8), fur, 0, -L / 2, 0, leg);
+      add(new THREE.SphereGeometry(0.16, 8, 6), sub, 0, -L - 0.05, 0.06, leg).scale.set(1, 0.7, 1.3);
+      body.add(leg); legs.push(leg);
+      legPhase.push(i === 0 || i === 3 ? 0 : Math.PI);
+    });
+    // 地面に足が届くよう全体を下げる
+    body.position.y = 0;
+    for (const l of legs) l.position.y = L + 0.1;
+    torso.position.y = L + 0.45; belly.position.y = L + 0.25; head.position.y = L + 1.15;
+    const tail = new THREE.Group(); tail.position.set(0, L + 0.6, -1.1); body.add(tail);
+    const tl = add(new THREE.CylinderGeometry(0.07, 0.12, cat ? 1.1 : 0.7, 8), fur, 0, cat ? 0.5 : 0.3, 0, tail);
+    tl.rotation.x = cat ? -0.2 : -0.7;
+    anims.push({ type: 'tail', obj: tail, speed: cat ? 2 : 14, amp: cat ? 0.25 : 0.6 });
+  }
+
+  const c = commonParts(g, body, ch, { shadowX: kind === 'dino' ? 0.75 : 0.6, flameY: 1.3, flameZ: -1.8, sparkX: [0.4, -0.4], sparkZ: -0.8 });
+  g.userData = { body, wheels: [], legs, arms, anims, legPhase, runner: true, ...c };
+  return g;
+}
+
+// 毎フレームのキャラの動き（足・腕・鼻水など）。足が地面についた瞬間に true を返す
 export function animateRacer(u, speed, t, dt, state) {
+  let stepped = false;
   if (u.runner) {
-    state.phase = (state.phase || 0) + Math.abs(speed) * dt * 0.55;
+    const prev = state.phase || 0;
+    state.phase = prev + Math.abs(speed) * dt * 0.55;
     const amp = Math.min(1, Math.abs(speed) / 12) * 0.9;
-    u.legs.forEach((l, i) => { l.rotation.x = Math.sin(state.phase + i * Math.PI) * amp; });
+    u.legs.forEach((l, i) => { l.rotation.x = Math.sin(state.phase + (u.legPhase ? u.legPhase[i] : i * Math.PI)) * amp; });
     u.arms.forEach((a, i) => { a.rotation.x = -Math.sin(state.phase + i * Math.PI) * amp * 0.9; });
     u.body.position.y = Math.abs(Math.sin(state.phase)) * 0.12 * (amp > 0.1 ? 1 : 0);
+    stepped = amp > 0.1 && Math.floor(state.phase / Math.PI) !== Math.floor(prev / Math.PI);
   }
   for (const a of u.anims) {
     if (a.type === 'drip') a.obj.scale.y = 0.25 + 0.2 * (Math.sin(t * 2.2) + 1);
@@ -279,7 +385,12 @@ export function animateRacer(u, speed, t, dt, state) {
     else if (a.type === 'beard') a.obj.rotation.z = Math.sin(t * 4) * 0.08;
     else if (a.type === 'sweat') a.obj.position.y = 0.2 - ((t * 0.8) % 1) * 0.5;
     else if (a.type === 'flutter') a.obj.rotation.x = Math.sin(t * 15) * 0.3;
+    else if (a.type === 'tail') a.obj.rotation.y = Math.sin(t * a.speed) * a.amp;
+    else if (a.type === 'ear') a.obj.rotation.x = Math.sin(t * 9) * 0.4;
+    else if (a.type === 'tongue') a.obj.rotation.x = 0.7 + Math.sin(t * 12) * 0.15;
+    else if (a.type === 'jaw') a.obj.rotation.x = 0.15 + Math.sin(t * 3) * 0.15;
   }
+  return stepped;
 }
 
 export function makeNameTag(text, color) {

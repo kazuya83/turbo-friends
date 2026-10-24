@@ -555,7 +555,7 @@ function startRace(msg) {
   $('hud').classList.remove('hidden');
   $('pause').classList.add('hidden');
   $('hud-msg').textContent = ''; $('hud-toast').textContent = '';
-  A.engineOn();
+  if (!R.me || !R.me.char.runner) A.engineOn();
 }
 
 function endRace() {
@@ -569,6 +569,7 @@ function endRace() {
   });
   $('hud').classList.add('hidden');
   A.engineOff();
+  A.bgmStop();
 }
 
 function removeKart(id) {
@@ -584,7 +585,7 @@ function removeKart(id) {
 function onLap(k) {
   const R = G.race;
   if (k === R.me && !k.finished) {
-    if (k.lap === LAPS) { showMsg('FINAL LAP!', 1.6); A.sfx.lap(); }
+    if (k.lap === LAPS) { showMsg('FINAL LAP!', 1.6); A.sfx.lap(); A.bgmRate(1.1); }
     else if (k.lap > 1 && k.lap < LAPS) { toast(`LAP ${k.lap}/${LAPS}`); A.sfx.lap(); }
   }
   if (k.lap > LAPS && !k.finished) finishKart(k);
@@ -804,6 +805,7 @@ function updateRace(dt) {
   } else if (!R.started) {
     R.started = true;
     showMsg('GO!', 1); A.sfx.go();
+    A.bgmStart(R.def.id);
     if (me && R.holdStart !== null) {
       if (R.holdStart >= -1.1 && R.holdStart <= -0.15) { me.boost(1.1); toast('スタートダッシュ！'); }
       else if (R.holdStart < -2.0) { me.stallT = 0.9; toast('エンスト…はやすぎ！'); }
@@ -986,7 +988,7 @@ function updateVisuals(R, dt) {
     m.rotation.y = k.h + (k.drifting ? k.driftDir * 0.38 : 0);
     u.body.rotation.y = k.spinAngle;
     for (const w of u.wheels) w.rotation.x += k.speed * dt / 0.48;
-    animateRacer(u, k.hopT > 0 ? 0 : k.speed, R.t, dt, k);
+    if (animateRacer(u, k.hopT > 0 ? 0 : k.speed, R.t, dt, k) && k === R.me) A.footstep(k.char.step || 'light');
     const boosting = k.controlled ? k.boostT > 0 : k.vBoost;
     u.flame.visible = boosting;
     if (boosting) u.flame.scale.setScalar(0.8 + Math.random() * 0.5);

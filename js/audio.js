@@ -83,3 +83,146 @@ export const sfx = {
   jump: () => beep(380, 0.18, 'triangle', 0.12, 760),
   bump: () => noise(0.12, 0.15, 600),
 };
+
+// 足音（カート以外のキャラ）
+let stepAlt = false;
+export function footstep(kind = 'light') {
+  if (!ctx) return;
+  stepAlt = !stepAlt;
+  const t = ctx.currentTime;
+  const base = kind === 'heavy' ? 70 : kind === 'paw' ? 520 : 300;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = kind === 'heavy' ? 'sine' : 'triangle';
+  o.frequency.setValueAtTime(base * (stepAlt ? 1 : 1.12), t);
+  o.frequency.exponentialRampToValueAtTime(base * 0.5, t + 0.07);
+  const vol = kind === 'heavy' ? 0.35 : kind === 'paw' ? 0.09 : 0.13;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + (kind === 'heavy' ? 0.18 : 0.08));
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
+  if (kind === 'heavy') noise(0.12, 0.12, 300);
+}
+
+// ---------- BGM（コースごとのチップチューン） ----------
+const SONGS = {
+  meadow: {
+    bpm: 132, wave: 'square', leadVol: 0.05, kit: 'pop',
+    roots: ['C3', 'G2', 'A2', 'F2'],
+    melody: [
+      'E5 - G5 - C6 - B5 - A5 - G5 - E5 - - -',
+      'D5 - G5 - B5 - A5 - G5 - - - D5 - - -',
+      'C5 - E5 - A5 - G5 - E5 - C5 - E5 - G5 -',
+      'F5 - A5 - C6 - A5 - G5 - - - - - . .',
+    ],
+  },
+  desert: {
+    bpm: 116, wave: 'triangle', leadVol: 0.09, kit: 'tabla',
+    roots: ['D3', 'Eb3', 'D3', 'C3'],
+    melody: [
+      'D5 - Eb5 - F#5 - G5 - A5 - - - G5 - F#5 -',
+      'Eb5 - - - D5 - Eb5 - F#5 - - - - - . .',
+      'A5 - Bb5 - A5 - G5 - F#5 - G5 - A5 - - -',
+      'G5 - F#5 - Eb5 - F#5 - D5 - - - - - . .',
+    ],
+  },
+  city: {
+    bpm: 124, wave: 'sawtooth', leadVol: 0.035, kit: 'four',
+    roots: ['A2', 'F2', 'C3', 'G2'],
+    melody: [
+      'A4 - C5 - E5 - A5 - G5 - E5 - C5 - E5 -',
+      'F5 - - - E5 - C5 - A4 - - - . . . .',
+      'G5 - E5 - C5 - E5 - G5 - C6 - B5 - G5 -',
+      'B5 - - - A5 - G5 - D5 - - - - - . .',
+    ],
+  },
+};
+const NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+function freq(name) {
+  const m = /^([A-G])([#b]?)(\d)$/.exec(name);
+  const n = NOTE[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + (Number(m[3]) + 1) * 12;
+  return 440 * Math.pow(2, (n - 69) / 12);
+}
+function compile(song) {
+  const lead = [], bass = [];
+  song.melody.forEach((bar, b) => {
+    const tok = bar.trim().split(/\s+/);
+    tok.forEach((t, i) => {
+      if (t === '-' || t === '.') return;
+      let len = 1;
+      while (tok[i + len] === '-') len++;
+      lead.push({ step: b * 16 + i, f: freq(t), len });
+    });
+    const r = freq(song.roots[b]);
+    [0, 2, 4, 6, 8, 10, 12, 14].forEach((s, j) => bass.push({ step: b * 16 + s, f: r * [1, 1, 1.5, 1, 2, 1, 1.5, 1][j], len: 1.6 }));
+  });
+  return { ...song, lead, bass, len: song.melody.length * 16 };
+}
+
+let bgm = null, bgmGain = null;
+export function bgmStart(id) {
+  if (!ctx) return;
+  bgmStop();
+  const song = SONGS[id];
+  if (!song) return;
+  if (!bgmGain) { bgmGain = ctx.createGain(); bgmGain.gain.value = 0.7; bgmGain.connect(master); }
+  const s = compile(song);
+  bgm = { s, step: 0, next: ctx.currentTime + 0.1, stepDur: 60 / s.bpm / 4, rate: 1 };
+  bgm.timer = setInterval(bgmTick, 25);
+}
+export function bgmRate(r) { if (bgm) bgm.rate = r; }
+export function bgmStop() {
+  if (!bgm) return;
+  clearInterval(bgm.timer);
+  bgm = null;
+}
+function bgmTick() {
+  if (!bgm) return;
+  const b = bgm;
+  if (b.next < ctx.currentTime - 0.5) b.next = ctx.currentTime + 0.05;
+  while (b.next < ctx.currentTime + 0.15) {
+    playStep(b.s, b.step, b.next, b.stepDur / b.rate);
+    b.next += b.stepDur / b.rate;
+    b.step = (b.step + 1) % b.s.len;
+  }
+}
+function tone(type, f, t, dur, vol, cutoff) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  if (cutoff) {
+    const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = cutoff;
+    o.connect(fl); fl.connect(g);
+  } else o.connect(g);
+  g.connect(bgmGain); o.start(t); o.stop(t + dur + 0.05);
+}
+function drum(kind, t) {
+  if (kind === 'kick') {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+    g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    o.connect(g); g.connect(bgmGain); o.start(t); o.stop(t + 0.2);
+    return;
+  }
+  const dur = kind === 'hat' ? 0.04 : 0.12;
+  const len = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const f = ctx.createBiquadFilter();
+  f.type = kind === 'hat' ? 'highpass' : 'bandpass';
+  f.frequency.value = kind === 'hat' ? 7000 : kind === 'tom' ? 400 : 1800;
+  const g = ctx.createGain(); g.gain.value = kind === 'hat' ? 0.05 : 0.12;
+  src.connect(f); f.connect(g); g.connect(bgmGain); src.start(t);
+}
+const KITS = {
+  pop: { kick: [0, 8], snare: [4, 12], hat: [2, 6, 10, 14] },
+  tabla: { kick: [0, 6, 8], snare: [12], tom: [3, 4, 10, 14], hat: [2, 7, 11] },
+  four: { kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14, 15] },
+};
+function playStep(s, step, t, sd) {
+  for (const n of s.lead) if (n.step === step) tone(s.wave, n.f, t, n.len * sd * 0.95, s.leadVol, s.wave === 'sawtooth' ? 2200 : 0);
+  for (const n of s.bass) if (n.step === step) tone('triangle', n.f, t, sd * n.len, 0.12);
+  const kit = KITS[s.kit], i = step % 16;
+  for (const k of Object.keys(kit)) if (kit[k].includes(i)) drum(k, t);
+}

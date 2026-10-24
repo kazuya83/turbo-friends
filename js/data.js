@@ -25,6 +25,15 @@ export const CHARS = [
   { id: 'obachan', name: 'ダッシュおばちゃん', type: '自分で走る・曲がり型', desc: '特売に向かうおばちゃん。小回りが最強。',
     color: 0xb36bff, skin: 0xf3c99a, hair: 0x6a3a8a, pants: 0x5a3a2a, shoe: 0xffffff, quirk: 'auntie', runner: true,
     speed: 3, accel: 3, handling: 5, weight: 3 },
+  { id: 'pochi', name: 'ポチ丸', type: '犬・加速型', desc: 'ベロを出してしっぽフリフリ。出だしが速い。',
+    color: 0xc98b4f, sub: 0xf5e1c0, animal: 'dog', runner: true, step: 'paw',
+    speed: 2, accel: 5, handling: 4, weight: 2 },
+  { id: 'futeneko', name: 'ふてねこ', type: '猫・曲がり型', desc: 'いつも不機嫌なぽっちゃり猫。カーブはおまかせ。',
+    color: 0xff9f43, sub: 0xffe3c2, stripe: 0xd9702a, animal: 'cat', runner: true, step: 'paw',
+    speed: 3, accel: 3, handling: 5, weight: 3 },
+  { id: 'tyranno', name: 'ティラノ太', type: '恐竜・重量型', desc: '短い手がチャームポイント。重くて速い。',
+    color: 0x4caf50, sub: 0xc5e86c, animal: 'dino', runner: true, step: 'heavy',
+    speed: 5, accel: 2, handling: 1, weight: 5 },
 ];
 
 export function statsOf(c) {
